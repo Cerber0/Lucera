@@ -2,7 +2,7 @@
 #include <Arduino.h>
 //#include <Adafruit_NeoPixel.h> //https://github.com/adafruit/Adafruit_NeoPixel
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.3
-//#include <SimpleTimer.h>
+#include <SimpleTimer.h>
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
@@ -37,17 +37,17 @@ String mqtt_server = "192.168.0.162";
 
 CRGB leds[LED_TOTAL];
 
-//SimpleTimer timer;
+SimpleTimer timer;
 int myNum = 5;          //Number of times to call the repeatMe function
 int myInterval = 30000;  //time between funciton calls in millis
 
 // Command Topic
-const char* mode_com = "/casa/lucera/cmd/mode/fmt/String";
-const char* pattern_com = "/casa/lucera/cmd/pattern/fmt/String";
-const char* color_com = "/casa/lucera/cmd/color/fmt/String";
-const char* cheer_com = "/casa/lucera/cmd/cheer/fmt/String";
-const char* realColor_com = "/casa/lucera/cmd/realcolor/fmt/String";
-const char* telemetry = "/casa/lucera/telemetry/fmt/String";
+String mode_com = "/casa/lucera/cmd/mode/fmt/String";
+String pattern_com = "/casa/lucera/cmd/pattern/fmt/String";
+String color_com = "/casa/lucera/cmd/color/fmt/String";
+String cheer_com = "/casa/lucera/cmd/cheer/fmt/String";
+String realColor_com = "/casa/lucera/cmd/realcolor/fmt/String";
+String telemetry = "/casa/lucera/telemetry/fmt/String";
 String  hostName;
 
 int iotStatus = 0;
@@ -263,7 +263,7 @@ String saveParams(AutoConnectAux& aux, PageArgument& args) {
   // To retrieve the elements of /mqtt_setting, it is necessary to get
   // the AutoConnectAux object of /mqtt_setting.
   File param = SPIFFS.open(PARAM_FILE, "w");
-  mqtt_setting.saveElement(param, { "mqttserver", "channelid_mode", "channelid_pattern", "channelid_color", "channelid_real", "hostname" });
+  mqtt_setting.saveElement(param, { "mqttserver", "channelid_mode", "channelid_pattern", "channelid_color", "channelid_real", "channelid_telemetry", "hostname" });
   param.close();
 
   // Echo back saved parameters to AutoConnectAux page.
@@ -296,7 +296,7 @@ void wifiConnect() {
 void callback(char* topic, byte* payload, unsigned int payloadLength) {
   Serial.print("callback invoked for topic: ");
   Serial.println(topic);
-  if (!strcmp(topic, mode_com)) {
+  if (!strcmp(topic, mode_com.c_str())) {
     char message_buff[100];
     int i;
     for(i= 0; i < payloadLength; i++) {
@@ -308,7 +308,7 @@ void callback(char* topic, byte* payload, unsigned int payloadLength) {
       //sendState();
   }
 
-  if (modes == 2 && (!strcmp(topic, pattern_com))) {
+  if (modes == 2 && (!strcmp(topic, pattern_com.c_str()))) {
     char message_buff[100];
     int i;
     for(i= 0; i < payloadLength; i++) {
@@ -322,7 +322,7 @@ void callback(char* topic, byte* payload, unsigned int payloadLength) {
       //sendState();
   }
 
-    if (modes == 3 && (!strcmp(topic, color_com))) {
+    if (modes == 3 && (!strcmp(topic, color_com.c_str()))) {
     char message_buff[100];
     int i;
       for(i=0; i < payloadLength; i++) {
@@ -353,7 +353,7 @@ void callback(char* topic, byte* payload, unsigned int payloadLength) {
     //sendState();
   }
 
-  if (modes == 4 && (!strcmp(topic, cheer_com))) {
+  if (modes == 4 && (!strcmp(topic, cheer_com.c_str()))) {
     char message_buff[100];
     int i;
     for(i= 0; i < payloadLength; i++) {
@@ -373,7 +373,7 @@ void callback(char* topic, byte* payload, unsigned int payloadLength) {
   }
 
 
-  if (modes == 5 && (!strcmp(topic, realColor_com))) {
+  if (modes == 5 && (!strcmp(topic, realColor_com.c_str()))) {
     char message_buff[100];
     int i;
     for(i= 0; i < payloadLength; i++) {
@@ -394,31 +394,31 @@ void callback(char* topic, byte* payload, unsigned int payloadLength) {
 PubSubClient client(mqtt_server.c_str(), 1883, callback, wifiClient);
 
 void initManagedDevice() {
-  if (client.subscribe(cheer_com)) {
+  if (client.subscribe(cheer_com.c_str())) {
     Serial.println("subscribe to Cheers Light OK");
   } else {
     Serial.println("subscribe to Cheers Light FAILED");
   }
 
-  if (client.subscribe(mode_com)) {
+  if (client.subscribe(mode_com.c_str())) {
     Serial.println("subscribe to Mode OK");
   } else {
     Serial.println("subscribe to Mode FAILED");
   }
 
-  if (client.subscribe(pattern_com)) {
+  if (client.subscribe(pattern_com.c_str())) {
     Serial.println("subscribe to Pattern OK");
   } else {
     Serial.println("subscribe to Pattern FAILED");
   }
 
-  if (client.subscribe(color_com)) {
+  if (client.subscribe(color_com.c_str())) {
     Serial.println("subscribe to Color OK");
   } else {
     Serial.println("subscribe to Color FAILED");
   }
 
-  if (client.subscribe(realColor_com)) {
+  if (client.subscribe(realColor_com.c_str())) {
     Serial.println("subscribe to Real Color OK");
   } else {
     Serial.println("subscribe to Real Color FAILED");
@@ -427,7 +427,7 @@ void initManagedDevice() {
 
 void sendState() {
   String s = String(modes);
-  client.publish(telemetry, String(modes).c_str());
+  client.publish(telemetry.c_str(), String(modes).c_str());
   Serial.print("Telemetry: ");
   Serial.println(modes);
 }
@@ -449,7 +449,7 @@ void mqttConnect() {
       Serial.println("connected");
       // ... and resubscribe
       initManagedDevice();
-      client.publish(telemetry, String("2").c_str());
+      client.publish(telemetry.c_str(), String("2").c_str());
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -1869,7 +1869,7 @@ void setup() {
   ArduinoOTA.begin();
   //client.setServer(mqtt_server.c_str(), 1883);
   //client.setCallback(callback);
-  //timer.setInterval(myInterval, sendState);
+  timer.setInterval(myInterval, sendState);
   Serial.println("Ready!");
 }
 
@@ -1935,5 +1935,5 @@ void loop() {
     Serial.println("Resetting ESP");
     ESP.restart(); //ESP.reset();
   }
-  //  timer.run();
+  timer.run();
 }
