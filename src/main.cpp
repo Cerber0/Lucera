@@ -8,6 +8,8 @@
 #include <ESP8266HTTPClient.h>
 #include <FS.h>
 #include <AutoConnect.h>
+//#define FASTLED_ALLOW_INTERRUPTS 0
+//#include <FastLED.h>
 
 typedef ESP8266WebServer WiFiWebServer;
 
@@ -28,7 +30,12 @@ String mqtt_server = "192.168.0.162";
 #define VISUALS 6
 #define analog_pin A0
 #define LED_PIN D5
+//#define LED_PIN2 5
 #define online_pin 4
+
+// Define the array of leds
+
+//CRGB leds[LED_TOTAL];
 
 //SimpleTimer timer;
 int myNum = 5;          //Number of times to call the repeatMe function
@@ -86,7 +93,7 @@ float avgTime = 0;
 
 WiFiWebServer Server;
 WiFiClient wifiClient;
-PubSubClient client(wifiClient);
+
 
 AutoConnect Portal(Server);
 AutoConnectConfig Config;
@@ -286,6 +293,106 @@ void wifiConnect() {
 }
 }
 
+void callback(char* topic, byte* payload, unsigned int payloadLength) {
+  Serial.print("callback invoked for topic: ");
+  Serial.println(topic);
+  if (!strcmp(topic, mode_com)) {
+    char message_buff[100];
+    int i;
+    for(i= 0; i < payloadLength; i++) {
+      message_buff[i] = payload[i];
+      }
+      message_buff[i] = '\0';
+       String s = String((char*)message_buff);
+      modes = s.toInt();
+      //sendState();
+  }
+
+  if (modes == 2 && (!strcmp(topic, pattern_com))) {
+    char message_buff[100];
+    int i;
+    for(i= 0; i < payloadLength; i++) {
+      message_buff[i] = payload[i];
+      }
+      message_buff[i] = '\0';
+       String s = String((char*)message_buff);
+      ledPattern = s.toInt();
+      Serial.print("Led pattern ");
+      Serial.println(ledPattern);
+      //sendState();
+  }
+
+    if (modes == 3 && (!strcmp(topic, color_com))) {
+    char message_buff[100];
+    int i;
+      for(i=0; i < payloadLength; i++) {
+        message_buff[i] = payload[i];
+        }
+      message_buff[i] = '\0';
+      String RGB = String((char*)message_buff);
+    int SP0 = RGB.indexOf('(');
+    int SP1 = RGB.indexOf(',', SP0+1);
+    int SP2 = RGB.indexOf(',', SP1+1);
+    int SP3 = RGB.indexOf(')', SP2+1);
+    String R = RGB.substring(SP0+1, SP1);
+    String G = RGB.substring(SP1+1, SP2);
+    String B = RGB.substring(SP2+1, SP3);
+    redValue = R.toInt();
+    if (redValue > 128) {
+      redValue = 128;
+    }
+    greenValue = G.toInt();
+    blueValue = B.toInt();
+    Serial.println("Colores");
+    Serial.println(redValue);
+    Serial.println(greenValue);
+    Serial.println(blueValue);
+    //client.publish(telemetry, R.c_str());
+    //client.publish(telemetry, G.c_str());
+    //client.publish(telemetry, B.c_str());
+    //sendState();
+  }
+
+  if (modes == 4 && (!strcmp(topic, cheer_com))) {
+    char message_buff[100];
+    int i;
+    for(i= 0; i < payloadLength; i++) {
+      message_buff[i] = payload[i];
+      }
+      message_buff[i] = '\0';
+      String RGB = String((char*)message_buff);
+      int number = (int) strtol( &RGB[1], NULL, 16);
+      redcheer = number >> 16;
+      greencheer = number >> 8 & 0xFF;
+      bluecheer = number & 0xFF;
+      Serial.println("Alegria");
+      Serial.println(redcheer);
+      Serial.println(greencheer);
+      Serial.println(bluecheer);
+      //sendState();
+  }
+
+
+  if (modes == 5 && (!strcmp(topic, realColor_com))) {
+    char message_buff[100];
+    int i;
+    for(i= 0; i < payloadLength; i++) {
+      message_buff[i] = payload[i];
+      }
+      message_buff[i] = '\0';
+       String s = String((char*)message_buff);
+       realColor = s.toInt();
+       Serial.print("Real Color ");
+       Serial.println(realColor);
+       //endState();
+  }
+    Serial.print("Modo :");
+    Serial.println(modes);
+}
+
+//PubSubClient client(wifiClient);
+PubSubClient client(mqtt_server.c_str(), 1883, callback, wifiClient);
+
 void initManagedDevice() {
   if (client.subscribe(cheer_com)) {
     Serial.println("subscribe to Cheers Light OK");
@@ -318,6 +425,16 @@ void initManagedDevice() {
   }
 }
 
+void sendState() {
+  String s = String(modes);
+  client.publish(telemetry, String(modes).c_str());
+  Serial.print("Telemetry: ");
+  Serial.println(modes);
+}
+
+
+////////////////////////////////////////////////////////
+
 void mqttConnect() {
   int retries = 0;
 
@@ -348,108 +465,6 @@ void mqttConnect() {
   }
 }
 
-void sendState() {
-  String s = String(modes);
-  client.publish(telemetry, String(modes).c_str());
-  Serial.print("Telemetry: ");
-  Serial.println(modes);
-}
-////////////////////////////////////////////////////////
-
-void callback(char* topic, byte* payload, unsigned int payloadLength) {
-  Serial.print("callback invoked for topic: ");
-  Serial.println(topic);
-  if (!strcmp(topic, mode_com)) {
-    char message_buff[100];
-    int i;
-    for(i= 0; i < payloadLength; i++) {
-      message_buff[i] = payload[i];
-      }
-      message_buff[i] = '\0';
-       String s = String((char*)message_buff);
-      modes = s.toInt();
-      sendState();
-  }
-
-  if (modes == 1 && (!strcmp(topic, pattern_com))) {
-    char message_buff[100];
-    int i;
-    for(i= 0; i < payloadLength; i++) {
-      message_buff[i] = payload[i];
-      }
-      message_buff[i] = '\0';
-       String s = String((char*)message_buff);
-      ledPattern = s.toInt();
-      Serial.print("Led pattern ");
-      Serial.println(ledPattern);
-      sendState();
-  }
-
-    if (modes == 2 && (!strcmp(topic, color_com))) {
-    char message_buff[100];
-    int i;
-      for(i=0; i < payloadLength; i++) {
-        message_buff[i] = payload[i];
-        }
-      message_buff[i] = '\0';
-      String RGB = String((char*)message_buff);
-    int SP0 = RGB.indexOf('(');
-    int SP1 = RGB.indexOf(',', SP0+1);
-    int SP2 = RGB.indexOf(',', SP1+1);
-    int SP3 = RGB.indexOf(')', SP2+1);
-    String R = RGB.substring(SP0+1, SP1);
-    String G = RGB.substring(SP1+1, SP2);
-    String B = RGB.substring(SP2+1, SP3);
-    redValue = R.toInt();
-    greenValue = G.toInt();
-    blueValue = B.toInt();
-    Serial.println("Colores");
-    Serial.println(redValue);
-    Serial.println(greenValue);
-    Serial.println(blueValue);
-    client.publish(telemetry, R.c_str());
-    client.publish(telemetry, G.c_str());
-    client.publish(telemetry, B.c_str());
-    sendState();
-  }
-
-
-  if (modes == 3 && (!strcmp(topic, cheer_com))) {
-    char message_buff[100];
-    int i;
-    for(i= 0; i < payloadLength; i++) {
-      message_buff[i] = payload[i];
-      }
-      message_buff[i] = '\0';
-      String RGB = String((char*)message_buff);
-      int number = (int) strtol( &RGB[1], NULL, 16);
-      redcheer = number >> 16;
-      greencheer = number >> 8 & 0xFF;
-      bluecheer = number & 0xFF;
-      Serial.println("Alegria");
-      Serial.println(redcheer);
-      Serial.println(greencheer);
-      Serial.println(bluecheer);
-      sendState();
-  }
-
-
-  if (modes == 4 && (!strcmp(topic, realColor_com))) {
-    char message_buff[100];
-    int i;
-    for(i= 0; i < payloadLength; i++) {
-      message_buff[i] = payload[i];
-      }
-      message_buff[i] = '\0';
-       String s = String((char*)message_buff);
-       realColor = s.toInt();
-       Serial.print("Real Color ");
-       Serial.println(realColor);
-       sendState();
-  }
-    Serial.print("Modo :");
-    Serial.println(modes);
-}
 
 /////////////////////////////////////////////////////
 
@@ -896,7 +911,7 @@ void RGBLoop() {
     // Fade IN
     for (int k = 0; k < 256; k++) {
       switch (j) {
-        case 0: setAll(k, 0, 0); break;
+        case 0: setAll(int(k/2), 0, 0); break;
         case 1: setAll(0, k, 0); break;
         case 2: setAll(0, 0, k); break;
       }
@@ -906,7 +921,7 @@ void RGBLoop() {
     // Fade OUT
     for (int k = 255; k >= 0; k--) {
       switch (j) {
-        case 0: setAll(k, 0, 0); break;
+        case 0: setAll(int(k/2), 0, 0); break;
         case 1: setAll(0, k, 0); break;
         case 2: setAll(0, 0, k); break;
       }
@@ -916,7 +931,34 @@ void RGBLoop() {
   }
 }
 
-
+/*void RGBLoopF() {
+  // Fade in/fade out
+  for(int j = 0; j < 3; j++ ) {
+    memset(leds, 0, LED_TOTAL * 3);
+    for(int k = 0; k < 256; k++) {
+      for(int i = 0; i < LED_TOTAL; i++ ) {
+        switch(j) {
+          case 0: leds[i].r = k; break;
+          case 1: leds[i].g = k; break;
+          case 2: leds[i].b = k; break;
+        }
+      }
+      FastLED.show();
+      delay(3);
+    }
+    for(int k = 255; k >= 0; k--) {
+      for(int i = 0; i < LED_TOTAL; i++ ) {
+        switch(j) {
+          case 0: leds[i].r = k; break;
+          case 1: leds[i].g = k; break;
+          case 2: leds[i].b = k; break;
+        }
+      }
+      FastLED.show();
+      delay(3);
+    }
+  }
+}*/
 ////////////////////////////////////////////
 
 
@@ -1461,7 +1503,6 @@ void BouncingColoredBalls(int BallCount, byte colors[][3]) {
 void getPattern() {
   if (ledPattern == 1) {
     RGBLoop();
-    Serial.println("1");
   }
 
   else if (ledPattern == 2) {
@@ -1536,6 +1577,10 @@ void getPattern() {
                         {0x17, 0x17, 0xE3} };
   BouncingColoredBalls(3, colors);
   }
+/*  else if (ledPattern == 19) {
+    RGBLoopF();
+  }*/
+
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1549,7 +1594,12 @@ void setLed() {
 }
 
 //////////////////////////////////////////////////////////////////
-
+void getOff() {
+  for (int y = 0; y < LED_TOTAL; y++) {
+    setPixel(y, 0, 0, 0);
+  }
+  strand.show();
+}
 
 void getReal() {
 if (realColor == 1) {                //Candle
@@ -1667,6 +1717,7 @@ void setup() {
   Serial.println();
   strand.begin();
 
+  //FastLED.addLeds<NEOPIXEL, LED_PIN2>(leds, LED_TOTAL);
   SPIFFS.begin();
 
   if (Portal.load(FPSTR(AUX_mqtt_setting))) {
@@ -1742,8 +1793,8 @@ void setup() {
 
   Serial.println("Initialize ArduinoOTA");
   ArduinoOTA.begin();
-  client.setServer(mqtt_server.c_str(), 1883);
-  client.setCallback(callback);
+  //client.setServer(mqtt_server.c_str(), 1883);
+  //client.setCallback(callback);
   //timer.setInterval(myInterval, sendState);
   Serial.println("Ready!");
 }
@@ -1762,17 +1813,19 @@ void loop() {
     //else {
     Portal.handleClient();
     //  wifiConnect();
-    if (!client.connected()) {
-      mqttConnect();
-    }
+
+    /*if (!client.connected()) {
+          mqttConnect();
+    }*/
       iotStatus = 1;
     //}
     times = millis();
   //}
   //previous = reading;
 
-  //  if (iotStatus == 1 && !client.loop()) {
-  //  mqttConnect();
+  if (iotStatus == 1 && !client.loop()) {
+    mqttConnect();
+  }
   ArduinoOTA.handle();
   client.loop();
 //Serial.println("Modes : ");
@@ -1781,25 +1834,29 @@ void loop() {
 //Serial.println(iotStatus);
 
   if (modes == 0) {
-      getDance();
+    getOff();
   }
 
   else if (modes == 1) {
-      getPattern();
+      getDance();
   }
 
   else if (modes == 2) {
+      getPattern();
+  }
+
+  else if (modes == 3) {
    setLed();
     }
 
-  else if (modes == 3) {
+  else if (modes == 4) {
    setCheer();
     }
 
-  else if (modes == 4) {
+  else if (modes == 5) {
       getReal();
     }
-  else if (modes == 5) {
+  else if (modes == 6) {
     Serial.println("Resetting ESP");
     ESP.restart(); //ESP.reset();
   }
