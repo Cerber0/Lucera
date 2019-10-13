@@ -1,6 +1,6 @@
 #include <ESP8266WiFi.h>
 #include <Arduino.h>
-#include <Adafruit_NeoPixel.h> //https://github.com/adafruit/Adafruit_NeoPixel
+//#include <Adafruit_NeoPixel.h> //https://github.com/adafruit/Adafruit_NeoPixel
 #include <PubSubClient.h> // https://github.com/knolleary/pubsubclient/releases/tag/v2.3
 //#include <SimpleTimer.h>
 #include <WiFiUdp.h>
@@ -9,7 +9,7 @@
 #include <FS.h>
 #include <AutoConnect.h>
 //#define FASTLED_ALLOW_INTERRUPTS 0
-//#include <FastLED.h>
+#include <FastLED.h>
 
 typedef ESP8266WebServer WiFiWebServer;
 
@@ -30,12 +30,12 @@ String mqtt_server = "192.168.0.162";
 #define VISUALS 6
 #define analog_pin A0
 #define LED_PIN D5
-//#define LED_PIN2 5
+#define LED_PIN2 5
 #define online_pin 4
 
 // Define the array of leds
 
-//CRGB leds[LED_TOTAL];
+CRGB leds[LED_TOTAL];
 
 //SimpleTimer timer;
 int myNum = 5;          //Number of times to call the repeatMe function
@@ -51,7 +51,7 @@ const char* telemetry = "/casa/lucera/telemetry/fmt/String";
 String  hostName;
 
 int iotStatus = 0;
-int modes = 0;
+int modes = 2;
 int ledPattern = 0;
 int realColor = 0;
 
@@ -98,7 +98,7 @@ WiFiClient wifiClient;
 AutoConnect Portal(Server);
 AutoConnectConfig Config;
 
-Adafruit_NeoPixel strand = Adafruit_NeoPixel(LED_TOTAL, LED_PIN, NEO_GRB + NEO_KHZ800);
+//Adafruit_NeoPixel strand = Adafruit_NeoPixel(LED_TOTAL, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 // JSON definition of AutoConnectAux.
 // Multiple AutoConnectAux can be defined in the JSON array.
@@ -449,7 +449,7 @@ void mqttConnect() {
       Serial.println("connected");
       // ... and resubscribe
       initManagedDevice();
-      client.publish(telemetry, String("Ready!").c_str());
+      client.publish(telemetry, String("2").c_str());
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -467,7 +467,7 @@ void mqttConnect() {
 
 
 /////////////////////////////////////////////////////
-
+/*
 
 void CyclePalette() {
   if (shuffle && millis() / 1000.0 - shuffleTime > 30 && gradient % 2) {
@@ -616,7 +616,7 @@ void Pulse() {
       if (avgCol > avgCol2) strand.setPixelColor(i, strand.Color(colors[0], colors[1], colors[2]));
     }
   }
-  strand.show();
+  showStrip();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -646,7 +646,7 @@ void PalettePulse() {
       if (avgCol > avgCol2) strand.setPixelColor(i, strand.Color(colors[0], colors[1], colors[2]));
     }
   }
-  strand.show();
+  showStrip();
 }
 
 
@@ -672,7 +672,7 @@ void Snake() {
     else if (avgTime >= 0.5 && avgTime < 1.0 && gradient % 3 == 0)    dotPos += (left) ? -1 : 1;
     else if (gradient % 4 == 0)                                       dotPos += (left) ? -1 : 1;
   }
-  strand.show();
+  showStrip();
   if (dotPos < 0)    dotPos = strand.numPixels() - 1;
   else if (dotPos >= strand.numPixels())  dotPos = 0;
 }
@@ -726,7 +726,7 @@ void Glitter() {
                          ));
   }
   bleed(dotPos);
-  strand.show();
+  showStrip();
 }
 
 
@@ -747,7 +747,7 @@ void Paintball() {
     strand.setPixelColor(dotPos - 1, strand.Color(colors[0], colors[1], colors[2]));
     strand.setPixelColor(dotPos + 1, strand.Color(colors[0], colors[1], colors[2]));
   }
-  strand.show();
+  showStrip();
 }
 
 
@@ -760,7 +760,7 @@ void Cycle() {
     val = int(val) % thresholds[palette];
     strand.setPixelColor(i, ColorPalette(val));
   }
-  strand.show();
+  showStrip();
   gradient += 32;
 }
 
@@ -795,7 +795,7 @@ void PaletteDance() {
   }
 
   else  fade(0.8);
-  strand.show();
+  showStrip();
   if (dotPos < 0) dotPos = strand.numPixels() - strand.numPixels() / 6;
   else if (dotPos >= strand.numPixels() - strand.numPixels() / 6)  dotPos = 0;
 }
@@ -837,7 +837,7 @@ void Traffic() {
                           );
     }
   }
-  strand.show();
+  showStrip();
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -884,98 +884,156 @@ void getDance() {
 
 }
 
-
-//////////////////////////////////////////////////////////////////
-
-
-
-void setPixel(int Pixel, byte red, byte green, byte blue) {
-  strand.setPixelColor(Pixel, strand.Color(red, green, blue));
+// ***************************************
+// ** FastLed/NeoPixel Common Functions **
+// ***************************************
+*/
+void showStrip() {
+ #ifdef ADAFRUIT_NEOPIXEL_H
+   // NeoPixel
+   strand.show();
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H
+   // FastLED
+   FastLED.show();
+ #endif
 }
 
-/////////////////////////////////////////////////////////////////////
+// Set a LED color (not yet visible)
+void setPixel(int Pixel, byte red, byte green, byte blue) {
+ #ifdef ADAFRUIT_NEOPIXEL_H
+   // NeoPixel
+   strip.setPixelColor(Pixel, strip.Color(red, green, blue));
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H
+   // FastLED
+   leds[Pixel].r = red;
+   leds[Pixel].g = green;
+   leds[Pixel].b = blue;
+ #endif
+}
 
-
+// Set all LEDs to a given color and apply it (visible)
 void setAll(byte red, byte green, byte blue) {
-  for (int i = 0; i < LED_TOTAL; i++ ) {
+  for(int i = 0; i < LED_TOTAL; i++ ) {
     setPixel(i, red, green, blue);
   }
-  strand.show();
+  showStrip();
 }
 
-//////////////////////////////////////////////
+
 
 
 void RGBLoop() {
   for (int j = 0; j < 3; j++ ) {
     // Fade IN
-    for (int k = 0; k < 256; k++) {
+    for (int k = 0; k < 128; k++) {
       switch (j) {
-        case 0: setAll(int(k/2), 0, 0); break;
+        case 0: setAll(k, 0, 0); break;
         case 1: setAll(0, k, 0); break;
         case 2: setAll(0, 0, k); break;
       }
-      strand.show();
-      delay(3);
+      showStrip();
+      FastLED.delay(3);
     }
     // Fade OUT
-    for (int k = 255; k >= 0; k--) {
+    for (int k = 128; k >= 0; k--) {
       switch (j) {
-        case 0: setAll(int(k/2), 0, 0); break;
+        case 0: setAll(k, 0, 0); break;
         case 1: setAll(0, k, 0); break;
         case 2: setAll(0, 0, k); break;
       }
-      strand.show();
-      delay(3);
+      showStrip();
+      FastLED.delay(3);
     }
   }
 }
 
-/*void RGBLoopF() {
-  // Fade in/fade out
-  for(int j = 0; j < 3; j++ ) {
-    memset(leds, 0, LED_TOTAL * 3);
-    for(int k = 0; k < 256; k++) {
-      for(int i = 0; i < LED_TOTAL; i++ ) {
-        switch(j) {
-          case 0: leds[i].r = k; break;
-          case 1: leds[i].g = k; break;
-          case 2: leds[i].b = k; break;
-        }
-      }
-      FastLED.show();
-      delay(3);
-    }
-    for(int k = 255; k >= 0; k--) {
-      for(int i = 0; i < LED_TOTAL; i++ ) {
-        switch(j) {
-          case 0: leds[i].r = k; break;
-          case 1: leds[i].g = k; break;
-          case 2: leds[i].b = k; break;
-        }
-      }
-      FastLED.show();
-      delay(3);
-    }
+void FadeInOut(byte red, byte green, byte blue){
+  float r, g, b;
+
+  for(int k = 0; k < 256; k=k+1) {
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+    setAll(r,g,b);
+    showStrip();
   }
-}*/
+
+  for(int k = 255; k >= 0; k=k-2) {
+    r = (k/256.0)*red;
+    g = (k/256.0)*green;
+    b = (k/256.0)*blue;
+    setAll(r,g,b);
+    showStrip();
+  }
+}
+
+// used by meteorrain
+void fadeToBlack(int ledNo, byte fadeValue) {
+ #ifdef ADAFRUIT_NEOPIXEL_H
+    // NeoPixel
+    uint32_t oldColor;
+    uint8_t r, g, b;
+    int value;
+
+    oldColor = strip.getPixelColor(ledNo);
+    r = (oldColor & 0x00ff0000UL) >> 16;
+    g = (oldColor & 0x0000ff00UL) >> 8;
+    b = (oldColor & 0x000000ffUL);
+
+    r=(r<=10)? 0 : (int) r-(r*fadeValue/256);
+    g=(g<=10)? 0 : (int) g-(g*fadeValue/256);
+    b=(b<=10)? 0 : (int) b-(b*fadeValue/256);
+
+    strip.setPixelColor(ledNo, r,g,b);
+ #endif
+ #ifndef ADAFRUIT_NEOPIXEL_H
+   // FastLED
+   leds[ledNo].fadeToBlackBy( fadeValue );
+ #endif
+}
+
 ////////////////////////////////////////////
+
+void meteorRain(byte red, byte green, byte blue, byte meteorSize, byte meteorTrailDecay, boolean meteorRandomDecay, int SpeedDelay) {
+  //setAll(0,0,0);
+
+  for(int i = 0; i < LED_TOTAL+LED_TOTAL; i++) {
+
+
+    // fade brightness all LEDs one step
+    for(int j=0; j<LED_TOTAL; j++) {
+      if( (!meteorRandomDecay) || (random(10)>5) ) {
+        fadeToBlack(j, meteorTrailDecay );
+      }
+    }
+
+    // draw meteor
+    for(int j = 0; j < meteorSize; j++) {
+      if( ( i-j <LED_TOTAL) && (i-j>=0) ) {
+        setPixel(i-j, red, green, blue);
+      }
+    }
+
+    showStrip();
+    FastLED.delay(SpeedDelay);
+  }
+}
 
 
 void Strobe(byte red, byte green, byte blue, int StrobeCount, int FlashDelay, int EndPause) {
   for (int j = 0; j < StrobeCount; j++) {
     setAll(red, green, blue);
-    strand.show();
-    delay(FlashDelay);
+    showStrip();
+    FastLED.delay(FlashDelay);
     setAll(0, 0, 0);
-    strand.show();
-    delay(FlashDelay);
+    showStrip();
+    FastLED.delay(FlashDelay);
   }
 
-  delay(EndPause);
+  FastLED.delay(EndPause);
 }
-
-
 
 ///////////////////////////////////////
 
@@ -996,7 +1054,7 @@ void HalloweenEyes(byte red, byte green, byte blue,
     setPixel(Start2ndEye + i, red, green, blue);
   }
 
-  strand.show();
+  showStrip();
 
   if (Fade == true) {
     float r, g, b;
@@ -1011,14 +1069,14 @@ void HalloweenEyes(byte red, byte green, byte blue,
         setPixel(Start2ndEye + i, r, g, b);
       }
 
-      strand.show();
-      delay(FadeDelay);
+      showStrip();
+      FastLED.delay(FadeDelay);
     }
   }
 
   setAll(0, 0, 0); // Set all black
 
-  delay(EndPause);
+  FastLED.delay(EndPause);
 }
 
 
@@ -1034,11 +1092,11 @@ void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
       setPixel(i + j, red, green, blue);
     }
     setPixel(i + EyeSize + 1, red / 10, green / 10, blue / 10);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
 
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 
   for (int i = LED_TOTAL - EyeSize - 2; i > 0; i--) {
     setAll(0, 0, 0);
@@ -1047,11 +1105,11 @@ void CylonBounce(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
       setPixel(i + j, red, green, blue);
     }
     setPixel(i + EyeSize + 1, red / 10, green / 10, blue / 10);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
 
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 }
 
 
@@ -1073,10 +1131,10 @@ void CenterToOutside(byte red, byte green, byte blue, int EyeSize, int SpeedDela
     }
     setPixel(LED_TOTAL - i - EyeSize - 1, red / 10, green / 10, blue / 10);
 
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 }
 
 void OutsideToCenter(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay) {
@@ -1095,10 +1153,10 @@ void OutsideToCenter(byte red, byte green, byte blue, int EyeSize, int SpeedDela
     }
     setPixel(LED_TOTAL - i - EyeSize - 1, red / 10, green / 10, blue / 10);
 
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 }
 
 void LeftToRight(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay) {
@@ -1109,10 +1167,10 @@ void LeftToRight(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
       setPixel(i + j, red, green, blue);
     }
     setPixel(i + EyeSize + 1, red / 10, green / 10, blue / 10);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 }
 
 void RightToLeft(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, int ReturnDelay) {
@@ -1123,10 +1181,10 @@ void RightToLeft(byte red, byte green, byte blue, int EyeSize, int SpeedDelay, i
       setPixel(i + j, red, green, blue);
     }
     setPixel(i + EyeSize + 1, red / 10, green / 10, blue / 10);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
-  delay(ReturnDelay);
+  FastLED.delay(ReturnDelay);
 }
 
 
@@ -1149,14 +1207,14 @@ void Twinkle(byte red, byte green, byte blue, int Count, int SpeedDelay, boolean
 
   for (int i = 0; i < Count; i++) {
     setPixel(random(LED_TOTAL), red, green, blue);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
     if (OnlyOne) {
       setAll(0, 0, 0);
     }
   }
 
-  delay(SpeedDelay);
+  FastLED.delay(SpeedDelay);
 }
 
 
@@ -1171,14 +1229,14 @@ void TwinkleRandom(int Count, int SpeedDelay, boolean OnlyOne) {
 
   for (int i = 0; i < Count; i++) {
     setPixel(random(LED_TOTAL), random(0, 255), random(0, 255), random(0, 255));
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
     if (OnlyOne) {
       setAll(0, 0, 0);
     }
   }
 
-  delay(SpeedDelay);
+  FastLED.delay(SpeedDelay);
 }
 
 //////////////////////////////////////////
@@ -1187,8 +1245,8 @@ void TwinkleRandom(int Count, int SpeedDelay, boolean OnlyOne) {
 void Sparkle(byte red, byte green, byte blue, int SpeedDelay) {
   int Pixel = random(LED_TOTAL);
   setPixel(Pixel, red, green, blue);
-  strand.show();
-  delay(SpeedDelay);
+  showStrip();
+  FastLED.delay(SpeedDelay);
   setPixel(Pixel, 0, 0, 0);
 }
 
@@ -1201,11 +1259,11 @@ void SnowSparkle(byte red, byte green, byte blue, int SparkleDelay, int SpeedDel
 
   int Pixel = random(LED_TOTAL);
   setPixel(Pixel, 0xff, 0xff, 0xff);
-  strand.show();
-  delay(SparkleDelay);
+  showStrip();
+  FastLED.delay(SparkleDelay);
   setPixel(Pixel, red, green, blue);
-  strand.show();
-  delay(SpeedDelay);
+  showStrip();
+  FastLED.delay(SpeedDelay);
 }
 
 //////////////////////////////////////////////////////////
@@ -1223,8 +1281,8 @@ void RunningLights(byte red, byte green, byte blue, int WaveDelay) {
                ((sin(i + Position) * 127 + 128) / 255)*blue);
     }
 
-    strand.show();
-    delay(WaveDelay);
+    showStrip();
+    FastLED.delay(WaveDelay);
   }
 }
 
@@ -1236,8 +1294,8 @@ void RunningLights(byte red, byte green, byte blue, int WaveDelay) {
 void colorWipe(byte red, byte green, byte blue, int SpeedDelay) {
   for (uint16_t i = 0; i < LED_TOTAL; i++) {
     setPixel(i, red, green, blue);
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
   }
 }
 
@@ -1279,8 +1337,8 @@ void rainbowCycle(int SpeedDelay) {
       c = Wheel(((i * 256 / LED_TOTAL) + j) & 255);
       setPixel(i, *c, *(c + 1), *(c + 2));
     }
-    strand.show();
-    delay(SpeedDelay);
+    showStrip();
+    FastLED.delay(SpeedDelay);
 }
 }
 
@@ -1294,9 +1352,9 @@ void theaterChase(byte red, byte green, byte blue, int SpeedDelay) {
       for (int i = 0; i < LED_TOTAL; i = i + 3) {
         setPixel(i + q, red, green, blue);
       }
-      strand.show();
+      showStrip();
 
-      delay(SpeedDelay);
+      FastLED.delay(SpeedDelay);
 
       for (int i = 0; i < LED_TOTAL; i = i + 3) {
         setPixel(i + q, 0, 0, 0);
@@ -1318,9 +1376,9 @@ void theaterChaseRainbow(int SpeedDelay) {
         c = Wheel( (i + j) % 255);
         setPixel(i + q, *c, *(c + 1), *(c + 2));
       }
-      strand.show();
+      showStrip();
 
-      delay(SpeedDelay);
+      FastLED.delay(SpeedDelay);
 
       for (int i = 0; i < LED_TOTAL; i = i + 3) {
         setPixel(i + q, 0, 0, 0);
@@ -1384,8 +1442,8 @@ void Fire(int Cooling, int Sparking, int SpeedDelay) {
     setPixelHeatColor(j, heat[j] );
   }
 
-  strand.show();
-  delay(SpeedDelay);
+  showStrip();
+  FastLED.delay(SpeedDelay);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -1436,9 +1494,9 @@ void BouncingBalls(byte red, byte green, byte blue, int BallCount) {
       setPixel(Position[i], red, green, blue);
     }
 
-    strand.show();
+    showStrip();
     setAll(0, 0, 0);
-    delay(100);
+    FastLED.delay(100);
   }
 }
 
@@ -1490,9 +1548,9 @@ void BouncingColoredBalls(int BallCount, byte colors[][3]) {
     for (int i = 0 ; i < BallCount ; i++) {
       setPixel(Position[i], colors[i][0], colors[i][1], colors[i][2]);
     }
-    strand.show();
+    showStrip();
     setAll(0, 0, 0);
-    delay(100);
+    FastLED.delay(100);
   }
 }
 
@@ -1506,14 +1564,18 @@ void getPattern() {
   }
 
   else if (ledPattern == 2) {
-    Strobe(random(0, 255), random(0, 255), random(0, 255), 10, 50, 1000);
+    Strobe(128, 128, 128, 10, 50, 1000);
   }
 
   else if (ledPattern == 3) {
     HalloweenEyes(0xff, 0x00, 0x00,
-                  1, 2,
-                  true, random(5, 30), random(50, 150),
-                  random(500, 2000));
+                  1, 4,
+                  true, random(5, 50), random(50, 150),
+                  random(1000, 10000));
+    HalloweenEyes(0xff, 0x00, 0x00,
+                  1, 4,
+                  true, random(5,50), random(50,150),
+                  random(1000, 10000));
   }
 
   else if (ledPattern == 4) {
@@ -1577,6 +1639,17 @@ void getPattern() {
                         {0x17, 0x17, 0xE3} };
   BouncingColoredBalls(3, colors);
   }
+
+  else if (ledPattern == 19) {
+    meteorRain(random(0, 255), random(0, 255), random(0, 255), 10, 64, true, 30);
+  }
+
+  else if (ledPattern == 20) {
+    // FadeInOut - Color (red, green. blue)
+    FadeInOut(0xff, 0x00, 0x00); // red
+    FadeInOut(0xff, 0xff, 0xff); // white
+    FadeInOut(0x00, 0x00, 0xff); // blue
+  }
 /*  else if (ledPattern == 19) {
     RGBLoopF();
   }*/
@@ -1589,8 +1662,8 @@ void setLed() {
    for (int y = 0; y < LED_TOTAL; y++ ) {
    setPixel(y, redValue, greenValue, blueValue);
    }
-    strand.show();
-    delay(100);
+    showStrip();
+    FastLED.delay(100);
 }
 
 //////////////////////////////////////////////////////////////////
@@ -1598,7 +1671,7 @@ void getOff() {
   for (int y = 0; y < LED_TOTAL; y++) {
     setPixel(y, 0, 0, 0);
   }
-  strand.show();
+  showStrip();
 }
 
 void getReal() {
@@ -1706,8 +1779,8 @@ void setCheer() {
    for (int y = 0; y < LED_TOTAL; y++ ) {
    setPixel(y, redcheer, greencheer, bluecheer);
    }
-    strand.show();
-    delay(100);
+    showStrip();
+    FastLED.delay(100);
 }
 
 void setup() {
@@ -1715,9 +1788,10 @@ void setup() {
   pinMode(online_pin, OUTPUT);
   Serial.begin(115200);
   Serial.println();
-  strand.begin();
+  //strand.begin();
 
   //FastLED.addLeds<NEOPIXEL, LED_PIN2>(leds, LED_TOTAL);
+  FastLED.addLeds<WS2812B, LED_PIN2, GRB>(leds, LED_TOTAL).setCorrection( TypicalLEDStrip );
   SPIFFS.begin();
 
   if (Portal.load(FPSTR(AUX_mqtt_setting))) {
@@ -1825,6 +1899,7 @@ void loop() {
 
   if (iotStatus == 1 && !client.loop()) {
     mqttConnect();
+    getOff();
   }
   ArduinoOTA.handle();
   client.loop();
@@ -1837,9 +1912,9 @@ void loop() {
     getOff();
   }
 
-  else if (modes == 1) {
+/*  else if (modes == 1) {
       getDance();
-  }
+  }*/
 
   else if (modes == 2) {
       getPattern();
